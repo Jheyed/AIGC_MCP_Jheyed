@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-首个自然语言到本地图像的 MCP MVP 已跑通；旧工作流两轮静态审计、关键兼容性复核和 Anima 核心恢复提案已完成；Git 基线已建立并推送到远端。当前按用户要求对 7 个旧工作流做实质审查，并选定其中一条重建为可运行配方出图，在生图过程中逐轮改进。
+首个自然语言到本地图像的 MCP MVP 已跑通；旧工作流两轮静态审计、关键兼容性复核和 Anima 核心恢复提案已完成；Git 基线已建立并推送到远端。Anima 核心基线已按旧工作流重建为两个零 custom-node 配方并真实出图，审美 LoRA A/B 确认有可见增益。当前进入配方改进与中文提示词编译能力设计。
 
 ## 已完成
 
@@ -30,11 +30,18 @@
 - 已将旧工作流扫描结果拆分为 inactive backend custom、core/frontend virtual 和 missing，避免把 Reroute/Note 误报成缺失插件。
 - 已形成不安装任何插件的 `docs/proposals/2026-10-19-anima-baseline-recovery.md`，定义核心替代节点、8 GB 显存策略与逐项 A/B 矩阵。
 - 已建立 Git 初始提交 `52209ef`（分支 `main`）并推送到 `origin/main`；提交者身份只写入本仓库 local config。
+- 已把旧工作流 `anima-txt2img-base.json` 重建为两个零 custom-node 配方：`workflows/recipes/anima-base-core.json` 与 `workflows/recipes/anima-base-aesthetic-lora.json`。
+- 已完成 4 轮真实 Anima 生成：768×768 冒烟、1024×1024 官方参数、1024×1024 中文对照、审美 LoRA A/B；全部经 MCP 提交并保存运行清单。
+- 已确认官方模板真实参数为 `euler/simple`、30 步、CFG 4、1024×1024 且带默认负向词，纠正了此前记录的 `er_sde`。
+- 已确认 Anima Base v1.0 不接受中文自然语言提示词，中文输入会产出伪文字与无关主体。
+- 已确认两枚审美 LoRA 用核心 `LoraLoaderModelOnly` 即可生效，无需任何 custom node。
 
 ## 已验证
 
 - 当前 `E:\Project-AIGC` 工作区开始时为空。
 - 本地 Git 仓库已有初始提交 `52209ef`，分支 `main` 跟踪 `origin/main`，工作区干净。
+- Anima 核心配方在 8 GB 显存上真实出图成功，`euler/simple`、30 步、CFG 4、1024×1024，单张耗时约 20–30 秒。
+- 同 seed 下审美 LoRA 版本（`anima-base-1-masterpiece-v51` + `anima-highres-aesthetic-boost`，强度 1.0）在构图、背景与光影上明显优于纯基线。
 - 治理文件清单检查通过，文档入口和 ADR 引用存在。
 - ComfyUI 0.41.3 启动、停止、重启和系统状态接口均验证通过。
 - MCP 0.10.0 标准 stdio 握手成功，发现 39 个工具，`server_info` 调用成功。
@@ -48,8 +55,7 @@
 
 - 尚未最终确定项目层实现语言或目标级 schema。
 - 旧工作流第三方节点已完成职责与关键许可证复核，但尚未做当前版本运行兼容性或效果验证，也未激活。
-- 尚未从官方 Anima 模板导出项目 API 配方，也没有在本机执行 Anima 生成。
-- 尚未验证角色参考、姿势控制或镜头结构化控制。
+- 尚未验证 Anima turbo LoRA 快速路径（本机为 `anima-turbo-lora-v0.1`，官方模板引用 v0.2）、角色参考、姿势控制或镜头结构化控制。
 
 ## 已知风险
 
@@ -62,6 +68,8 @@
 - Anima Enhancer 与 llama-cpp_vlm 当前上游的 pyproject 都引用不存在的 LICENSE 文件，许可不能确认；TT Resolution Selector 只有 MIT 元数据声明且项目元数据未清理。三者都不进入首个基线。
 - ANIMA_BOOSTER 与 BSS FLSampler 使用限制性版权声明，不得把其代码复制、合并或再托管进本项目。
 - 全仓文件当前为 LF，全局 `core.autocrlf=true` 会在后续检出时转为 CRLF，可能产生整文件 diff 噪声。
+- 当前会话的进程级写限制使 python 只能写工作区与 TEMP：给目录加 `Everyone:F` 仍然被拒，说明是令牌级限制而非 ACL。comfy-cli 写入 `~\AppData\Local\comfy-cli\jobs` 失败时会被报成 “lost connection to ComfyUI server”，容易被误判为服务故障。
+- Anima Base v1.0 不接受中文自然语言提示词；中文请求必须先经提示词编译层转成英文/标签，否则出伪文字图。
 - 官方 comfy-cli 云端知识包需要 Comfy Cloud 登录；项目没有登录，也不依赖该能力。
 - comfy-cli 在 Windows 后台启动时需要命令级 PATH 修正，已封装在项目脚本中。
 - MCP `server_info` 的附加更新检查可能超时；本地服务检测与工具调用不受影响。
@@ -70,11 +78,11 @@
 
 ## 下一步
 
-1. 完成 7 个旧工作流的实质审查：逐条说明用途、当前激活分支与失败边界，逐个 custom node 说明职责和在核心节点下的替代关系；沿用前两轮记录，不重复推导已有结论。
-2. 从审查结论中选一条工作流，重建为零 custom-node 的可运行配方：先 768×768 冒烟，再出 1024×1024；每轮生图记录 seed、工作流哈希、参数改动与改动理由。
+1. 设计中文提示词编译层（中文目标 → 英文/标签提示词），这是中文创作链路成立的前提；先用纯函数实现并用固定 seed 回归验证。
+2. 验证 turbo LoRA 快速路径（8 步、CFG 1）与两枚审美 LoRA 的强度扫描，记录速度与画质取舍。
 3. 定义第一版目标级请求 schema：提示词、角色参考、姿势、镜头、风格和输出参数。
 4. 从综合工作台中抽取可替换的“本地图片理解 → 标签整理 → 提示词编译”能力；不得复制来源/许可不明的归档代码。
 
 ## 当前是否等待用户决定
 
-否。下一步可以先生成并静态验证核心 API 配方；执行 Anima、安装任何第三方节点或新增大型模型前仍需用户确认。
+是。Anima 核心基线已按用户授权完成出图与 A/B，下一步方向需要用户选择：先做中文提示词编译层，还是先做 turbo/LoRA 参数扫描，或先定义目标级 schema。安装任何第三方节点或新增大型模型前仍需用户确认。

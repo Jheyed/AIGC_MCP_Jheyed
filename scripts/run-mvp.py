@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -27,12 +28,47 @@ DEFAULT_WORKFLOW = (
     PROJECT_ROOT / "workflows" / "official" / "image_z_image_turbo_int8.json"
 )
 
+# comfy-cli keeps per-job state under ``~\\AppData\\Local\\comfy-cli\\jobs``.
+# When this runner is launched by a sandboxed harness that only allows writes
+# inside the workspace, that path is denied after submission and the run looks
+# like a lost server connection. Pointing the child's home at a workspace-local
+# directory keeps the state writable without changing any system setting.
+CLI_HOME = RUNTIME_ROOT / "comfy-cli-home"
+
+
+def prepare_cli_home() -> Path:
+    """Create a workspace-local HOME for comfy-cli and seed its config."""
+    local_appdata = CLI_HOME / "AppData" / "Local"
+    target_config = local_appdata / "comfy-cli" / "config.ini"
+    target_config.parent.mkdir(parents=True, exist_ok=True)
+    if not target_config.exists():
+        source = Path(os.environ.get("LOCALAPPDATA", "")) / "comfy-cli" / "config.ini"
+        if source.is_file():
+            target_config.write_text(
+                source.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+    return CLI_HOME
+
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate one local image through Comfy MCP."
     )
     parser.add_argument("--prompt", required=True, help="Natural-language image prompt")
+    parser.add_argument(
+        "--negative",
+        default="",
+        help="Negative prompt for API-format recipes (default: empty)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=-1,
+        help="Sampler seed; -1 picks a random one and records it",
+    )
+    parser.add_argument("--width", type=int, default=None, help="Override latent width")
+    parser.add_argument("--height", type=int, default=None, help="Override latent height")
     parser.add_argument(
         "--workflow",
         type=Path,
@@ -73,6 +109,52 @@ def replace_prompt(value: Any, prompt: str) -> list[str]:
     return changed
 
 
+def is_api_format(workflow: Any) -> bool:
+    """API-format graphs map node id to a {class_type, inputs} object."""
+    return (
+        isinstance(workflow, dict)
+        and bool(workflow)
+        and all(
+            isinstance(node, dict) and "class_type" in node
+            for node in workflow.values()
+        )
+    )
+
+
+def substitute_slots(value: Any, slots: dict[str, Any]) -> tuple[Any, list[str]]:
+    """Replace placeholder strings such as __POSITIVE__ anywhere in a graph."""
+    replaced: list[str] = []
+
+    def walk(node: Any) -> Any:
+        if isinstance(node, dict):
+            return {key: walk(child) for key, child in node.items()}
+        if isinstance(node, list):
+            return [walk(child) for child in node]
+        if isinstance(node, str) and node in slots:
+            replaced.append(node)
+            return slots[node]
+        return node
+
+    return walk(value), replaced
+
+
+def set_latent_size(
+    workflow: dict[str, Any], width: int | None, height: int | None
+) -> list[str]:
+    changed: list[str] = []
+    for node_id, node in workflow.items():
+        if node.get("class_type") != "EmptyLatentImage":
+            continue
+        inputs = node.setdefault("inputs", {})
+        if width is not None:
+            inputs["width"] = width
+            changed.append(f"{node_id}.width={width}")
+        if height is not None:
+            inputs["height"] = height
+            changed.append(f"{node_id}.height={height}")
+    return changed
+
+
 def result_payload(result: Any) -> Any:
     if result.is_error:
         rendered = [getattr(item, "text", repr(item)) for item in result.content]
@@ -110,14 +192,38 @@ async def run(args: argparse.Namespace) -> None:
         raise FileNotFoundError(f"Workflow not found: {workflow_path}")
 
     workflow = json.loads(workflow_path.read_text(encoding="utf-8"))
-    changed = replace_prompt(workflow, args.prompt)
-    if len(changed) != 1:
-        raise RuntimeError(
-            "Expected exactly one CLIPTextEncode prompt node, "
-            f"but changed {len(changed)} nodes: {changed}"
-        )
+    seed = (
+        args.seed
+        if args.seed >= 0
+        else random.SystemRandom().randrange(0, 2**31 - 1)
+    )
+    slots: dict[str, Any] = {"prompt": args.prompt}
+    if is_api_format(workflow):
+        patch_values = {
+            "__POSITIVE__": args.prompt,
+            "__NEGATIVE__": args.negative,
+            "__SEED__": seed,
+        }
+        workflow, replaced = substitute_slots(workflow, patch_values)
+        if "__POSITIVE__" not in replaced:
+            raise RuntimeError(
+                "API-format recipe has no __POSITIVE__ slot: " + str(workflow_path)
+            )
+        changed = [f"slot:{name}" for name in replaced]
+        changed.extend(set_latent_size(workflow, args.width, args.height))
+        slots["negative"] = args.negative
+        slots["seed"] = seed
+        slots["format"] = "api"
+    else:
+        changed = replace_prompt(workflow, args.prompt)
+        if len(changed) != 1:
+            raise RuntimeError(
+                "Expected exactly one CLIPTextEncode prompt node, "
+                f"but changed {len(changed)} nodes: {changed}"
+            )
+        slots["format"] = "ui"
 
-    run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-z-image-mvp"
+    run_id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + workflow_path.stem
     run_dir = RUNTIME_ROOT / "runs" / run_id
     output_dir = run_dir / "outputs"
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -135,6 +241,7 @@ async def run(args: argparse.Namespace) -> None:
         "prepared_workflow": str(prepared_workflow),
         "prompt": args.prompt,
         "prompt_node_ids": changed,
+        "slots": slots,
         "transport": "MCP stdio",
         "mcp_server": str(MCP_COMMAND),
         "status": "prepared",
@@ -150,6 +257,13 @@ async def run(args: argparse.Namespace) -> None:
         "COMFY_WHERE": "local",
         "PATH": f"{SCRIPTS_DIR}{os.pathsep}{os.environ.get('PATH', '')}",
     }
+    cli_home = prepare_cli_home()
+    child_env["USERPROFILE"] = str(cli_home)
+    child_env["LOCALAPPDATA"] = str(cli_home / "AppData" / "Local")
+    child_env["TEMP"] = os.environ.get("TEMP", "")
+    child_env["TMP"] = os.environ.get("TMP", "")
+    child_env["SYSTEMROOT"] = os.environ.get("SYSTEMROOT", "C:\\Windows")
+    manifest["cli_home"] = str(cli_home)
     server = StdioServerParameters(command=str(MCP_COMMAND), args=[], env=child_env)
 
     try:

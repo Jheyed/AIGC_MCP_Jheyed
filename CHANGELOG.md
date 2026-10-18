@@ -4,6 +4,23 @@
 
 ## Unreleased
 
+### 2026-10-19 — 旧工作流审查落地：Anima 核心基线出图与审美 LoRA A/B
+
+- 变更：复核 7 个旧工作流的机器清单（`audit-legacy-workflows.py --compact`，987 个核心节点类型，`missing_types` 全为空）；新增两个零 custom-node 配方 `workflows/recipes/anima-base-core.json` 与 `workflows/recipes/anima-base-aesthetic-lora.json`；扩展 `scripts/run-mvp.py` 支持 API 格式工作流、`__POSITIVE__`/`__NEGATIVE__`/`__SEED__` 槽位、`--negative`/`--seed`/`--width`/`--height` 参数，并为 comfy-cli 指定工作区内的 HOME；完成 4 轮真实 Anima 生成与 1 轮 A/B。
+- 原因：按用户要求先理解旧工作流与每个 custom node 的职责，再用其中一条（`anima-txt2img-base.json`）出图，并在出图过程中逐步改进。
+- 验证：
+  - 运行前用本机 `/object_info` 逐项核对 `UNETLoader`、`CLIPLoader`、`KSampler`、`EmptyLatentImage`、`VAEDecode`、`VAELoader`、`SaveImage` 的参数名与可选值，确认 `anima-base-v1.0`、`qwen_3_06b_base`、`qwen_image_vae` 三个模型均存在。
+  - 第 1 轮 768×768（`er_sde`、负向为空、中文）：出图为白色团状物加伪文字，判定为无效基线。
+  - 第 2 轮 1024×1024（改官方参数 `euler/simple`、补官方负向词、英文提示词，seed 12345）：出图正常，雨夜风衣人物、低机位、电影感光影均达成，任务 `ad21b22b-d6c8-460b-a912-499eca19683c`。
+  - 第 3 轮同上参数但中文提示词：再次出现伪文字与无关主体，任务 `5711277e-f7f7-4aba-b235-62ea96f888e5`。
+  - 第 4 轮在基线前串接 `anima-base-1-masterpiece-v51` 与 `anima-highres-aesthetic-boost` 两枚 LoRA（强度 1.0，同 seed）：构图、背景人群与灯光明显优于第 2 轮，任务 `2bd240e7-60ae-4d31-8533-0db66a06e3d8`。
+  - 所有运行均通过 MCP `run_workflow` → `job(wait)` → `fetch_outputs`，清单保存在 `runtime/runs/<run_id>/manifest.json`，含槽位、seed、工作流副本与输出文件。
+- 关键结论：
+  - 官方模板的真实参数是 `euler/simple`、30 步、CFG 4、1024×1024，负向提示词有默认值；提案中记录的 `er_sde` 与官方模板不符，已按模板纠正。
+  - **Anima Base v1.0 不接受中文自然语言提示词**，中文会产出伪文字与无关主体；中文创作必须先编译成英文/标签，这正是综合工作台 VLM 反推与提示词编译能力要解决的问题。
+  - 旧工作流里的两枚审美 LoRA 不需要任何 custom node，用核心 `LoraLoaderModelOnly` 即可获得可见增益。
+- 已知问题：进程级写限制使 python 只能写工作区与 TEMP，comfy-cli 的 `~\\AppData\\Local\\comfy-cli\\jobs` 状态写入失败会被报成 “lost connection”；已在 `run-mvp.py` 中把子进程 HOME 指向 `runtime/comfy-cli-home/` 规避，未修改任何系统设置。
+
 ### 2026-10-19 — 建立 Git 版本基线并推送远端
 
 - 变更：为仓库配置提交者身份（账户 `Jheyed` + GitHub 匿名邮箱，仅写入本仓库 local config，未改全局设置）；本地分支 `master` 更名为 `main`；新增首个提交 `52209ef`，纳入治理文档、运行环境记录、脚本、官方工作流与上一轮审计成果共 28 个文件、3229 行；推送到 `origin/main` 并建立跟踪关系。
