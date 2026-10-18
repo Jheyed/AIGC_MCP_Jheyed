@@ -1,0 +1,51 @@
+schema_version: 1
+verified_at: "2026-10-19"
+platform:
+  os: Windows 11
+  gpu: NVIDIA GeForce RTX 5060
+  vram_bytes: 8546484224
+  ram_bytes: 33998069760
+
+runtime:
+  python: 3.12.15
+  comfyui: 0.41.3
+  comfyui_commit: 8713616f
+  comfy_cli: 1.22.0
+  comfy_mcp: 0.10.0
+  mcp_tool_count: 39
+  pytorch: 2.14.1+cu130
+  frontend: 1.55.17
+  workflow_templates: 0.11.87
+
+paths:
+  # Paths are relative to the project root unless explicitly marked otherwise.
+  python: runtime/python
+  comfyui: runtime/comfy
+  comfy_cli_config: "%LOCALAPPDATA%/comfy-cli/config.ini"
+
+network:
+  comfyui_url: http://127.0.0.1:8188
+  lan_exposure: false
+
+optional_components:
+  comfyui_manager: false
+  custom_nodes: false
+  local_models: true
+  cloud_login: false
+
+verified_workflows:
+  image_z_image_turbo_int8:
+    status: runnable_and_generated
+    output_width: 1024
+    output_height: 1024
+    api_dependent: false
+    custom_nodes_required: false
+
+legacy_import:
+  source: "E:/`resource/AIGC/ComfyUI-zove4/ComfyUI"
+  models_bytes: 29599957100
+  workflow_files: 8
+  input_files: 5
+  output_files: 154
+  custom_nodes_archive_files: 6630
+  custom_nodes_active: false

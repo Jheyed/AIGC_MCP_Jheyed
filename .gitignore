@@ -1,0 +1,44 @@
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+*.key
+*.token
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+
+# Generated and temporary files
+runtime/
+work/
+tmp/
+cache/
+logs/
+runs/
+outputs/
+# comfy-cli may emit these dependency-resolution scratch files at the project root.
+override.txt
+requirements.compiled
+
+# Model files
+*.ckpt
+*.safetensors
+*.pt
+*.pth
+*.bin
+*.gguf
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
