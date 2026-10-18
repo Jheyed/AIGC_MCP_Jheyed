@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+### 2026-10-19 — 建立工作推进协议
+
+- 变更：新增 `docs/WORKFLOW.md`，规定一次任务的循环（交流→执行→沉淀→回归→记录）、只认三种产物形态、单一真值源、知识条目强制字段（含证据与作用域）、任务类型封闭清单与合并判据、变体只声明差异、生命周期与收敛、记录上限，以及原则与实际情况冲突时的停止与改判流程；README 文档入口加入该文件。
+- 原因：用户要求把「先完成一次任务，再从中提炼出下次可直接复用的东西」固化为项目推进方式，同时规避三类风险：重复记录造成冗余、过度细分场景降低泛用性、以及沉淀未经执行验证的结论。
+- 验证：文档只写规则与字段，不含任何具体事实或数值；本轮未改动配方、脚本与运行环境。
+- 已知问题：知识条目登记表尚未建立（协议 §4 指定了位置与字段），首个条目将在下一个任务收尾时创建，避免现在凭空造数据。
+
 ### 2026-10-19 — 旧工作流审查落地：Anima 核心基线出图与审美 LoRA A/B
 
 - 变更：复核 7 个旧工作流的机器清单（`audit-legacy-workflows.py --compact`，987 个核心节点类型，`missing_types` 全为空）；新增两个零 custom-node 配方 `workflows/recipes/anima-base-core.json` 与 `workflows/recipes/anima-base-aesthetic-lora.json`；扩展 `scripts/run-mvp.py` 支持 API 格式工作流、`__POSITIVE__`/`__NEGATIVE__`/`__SEED__` 槽位、`--negative`/`--seed`/`--width`/`--height` 参数，并为 comfy-cli 指定工作区内的 HOME；完成 4 轮真实 Anima 生成与 1 轮 A/B。

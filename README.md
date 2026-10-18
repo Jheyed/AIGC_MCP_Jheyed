@@ -17,8 +17,9 @@
 3. [协作与编辑规范](docs/DEVELOPMENT_RULES.md)
 4. [架构原则](docs/ARCHITECTURE_PRINCIPLES.md)
 5. [质量与验收标准](docs/QUALITY_GATES.md)
-6. [架构决策记录](docs/decisions/README.md)
-7. [变更日志](CHANGELOG.md)
+6. [工作推进协议](docs/WORKFLOW.md)
+7. [架构决策记录](docs/decisions/README.md)
+8. [变更日志](CHANGELOG.md)
 
 已执行的基础环境方案见 [第一阶段安装计划](docs/INSTALLATION_PLAN.md)。
 
