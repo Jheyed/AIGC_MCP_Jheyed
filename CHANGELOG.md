@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+### 2026-10-19 — 建立 Git 版本基线并推送远端
+
+- 变更：为仓库配置提交者身份（账户 `Jheyed` + GitHub 匿名邮箱，仅写入本仓库 local config，未改全局设置）；本地分支 `master` 更名为 `main`；新增首个提交 `52209ef`，纳入治理文档、运行环境记录、脚本、官方工作流与上一轮审计成果共 28 个文件、3229 行；推送到 `origin/main` 并建立跟踪关系。
+- 原因：此前仓库零提交、全部文件未跟踪，项目承诺的“可追溯”缺少版本层支撑；远端仓库为空，首次推送同时确定默认分支。
+- 验证：提交前全仓扫描 `sk-`、`api_key`、`password`、`ghp_`、Bearer 模式均无命中；`runtime/`、模型权重与缓存由 `.gitignore` 排除，实际入库约 134 KB；`git status` 干净；`git push` 退出码 0，远端新建 `main`。
+- 已知问题：上一轮 Agent 的收尾写入发生在本次读取文档期间（01:33–01:36），已确认其成果全部包含在 `52209ef` 中，没有覆盖或丢失；全仓文件为 LF，全局 `core.autocrlf=true` 会在后续检出时转 CRLF，可能产生整文件 diff 噪声。
+
 ### 2026-10-19 — 完成旧工作流兼容性复核与 Anima 恢复提案
 
 - 变更：用当前 Comfy Org 官方模板确认 Anima 的 Qwen 0.6B 文本编码器应使用 `CLIPLoader.type=stable_diffusion`；复核 Anima Enhancer、llama-cpp_vlm、TT Resolution Selector 与来源不明 Danbooru 插件的许可状态；将静态审计脚本升级为 schema v2，分别输出 inactive backend custom、core/frontend virtual 和 missing；新增零 custom-node 的 Anima 核心恢复提案、8 GB 显存策略和逐项 A/B 矩阵。

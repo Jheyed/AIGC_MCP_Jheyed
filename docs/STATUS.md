@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-首个自然语言到本地图像的 MCP MVP 已跑通；旧工作流两轮静态审计、关键兼容性复核和 Anima 核心恢复提案已完成，准备从官方模板导出零 custom-node 的 API 配方。
+首个自然语言到本地图像的 MCP MVP 已跑通；旧工作流两轮静态审计、关键兼容性复核和 Anima 核心恢复提案已完成；Git 基线已建立并推送到远端。当前按用户要求对 7 个旧工作流做实质审查，并选定其中一条重建为可运行配方出图，在生图过程中逐轮改进。
 
 ## 已完成
 
@@ -29,11 +29,12 @@
 - 已复核 Anima Enhancer、llama-cpp_vlm 和 TT Resolution Selector 的当前许可元数据，并再次确认 Danbooru-Anima-Prompt 没有可信公开来源。
 - 已将旧工作流扫描结果拆分为 inactive backend custom、core/frontend virtual 和 missing，避免把 Reroute/Note 误报成缺失插件。
 - 已形成不安装任何插件的 `docs/proposals/2026-10-19-anima-baseline-recovery.md`，定义核心替代节点、8 GB 显存策略与逐项 A/B 矩阵。
+- 已建立 Git 初始提交 `52209ef`（分支 `main`）并推送到 `origin/main`；提交者身份只写入本仓库 local config。
 
 ## 已验证
 
 - 当前 `E:\Project-AIGC` 工作区开始时为空。
-- 已初始化本地 Git 仓库。
+- 本地 Git 仓库已有初始提交 `52209ef`，分支 `main` 跟踪 `origin/main`，工作区干净。
 - 治理文件清单检查通过，文档入口和 ADR 引用存在。
 - ComfyUI 0.41.3 启动、停止、重启和系统状态接口均验证通过。
 - MCP 0.10.0 标准 stdio 握手成功，发现 39 个工具，`server_info` 调用成功。
@@ -60,7 +61,7 @@
 - `ComfyUI-Danbooru-Anima-Prompt` 的归档副本没有可确认的 Git 来源或许可证，不能直接纳入项目发布物。
 - Anima Enhancer 与 llama-cpp_vlm 当前上游的 pyproject 都引用不存在的 LICENSE 文件，许可不能确认；TT Resolution Selector 只有 MIT 元数据声明且项目元数据未清理。三者都不进入首个基线。
 - ANIMA_BOOSTER 与 BSS FLSampler 使用限制性版权声明，不得把其代码复制、合并或再托管进本项目。
-- Git 尚无提交者身份配置，因此当前只初始化了仓库，没有伪造身份创建初始提交。
+- 全仓文件当前为 LF，全局 `core.autocrlf=true` 会在后续检出时转为 CRLF，可能产生整文件 diff 噪声。
 - 官方 comfy-cli 云端知识包需要 Comfy Cloud 登录；项目没有登录，也不依赖该能力。
 - comfy-cli 在 Windows 后台启动时需要命令级 PATH 修正，已封装在项目脚本中。
 - MCP `server_info` 的附加更新检查可能超时；本地服务检测与工具调用不受影响。
@@ -69,8 +70,8 @@
 
 ## 下一步
 
-1. 从官方 Anima Base 1.0 模板导出零 custom-node 的 API 工作流，加入受控槽位和运行记录，先做静态验证。
-2. 向用户展示 768×768 冒烟配置并取得运行授权，再实测 8 GB 显存下的 1024×1024 官方基线。
+1. 完成 7 个旧工作流的实质审查：逐条说明用途、当前激活分支与失败边界，逐个 custom node 说明职责和在核心节点下的替代关系；沿用前两轮记录，不重复推导已有结论。
+2. 从审查结论中选一条工作流，重建为零 custom-node 的可运行配方：先 768×768 冒烟，再出 1024×1024；每轮生图记录 seed、工作流哈希、参数改动与改动理由。
 3. 定义第一版目标级请求 schema：提示词、角色参考、姿势、镜头、风格和输出参数。
 4. 从综合工作台中抽取可替换的“本地图片理解 → 标签整理 → 提示词编译”能力；不得复制来源/许可不明的归档代码。
 
